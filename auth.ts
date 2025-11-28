@@ -1,11 +1,12 @@
 import NextAuth from "next-auth"
+import type { NextAuthConfig } from "next-auth"
 import Credentials from "next-auth/providers/credentials"
 import { ZodError } from "zod"
 import { signInSchema } from "@/lib/zod"
 import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
 
-export const { handlers, signIn, signOut, auth } = NextAuth({
+const authConfig: NextAuthConfig = {
   providers: [
     Credentials({
       credentials: {
@@ -78,4 +79,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   pages: {
     signIn: "/login",
   },
-})
+}
+
+export const { handlers, signIn, signOut, auth } = NextAuth(authConfig)
