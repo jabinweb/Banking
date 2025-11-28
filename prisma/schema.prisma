@@ -1,0 +1,219 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User Management
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String
+  name          String
+  phone         String?
+  role          String    @default("user") // user, admin, agent
+  isVerified    Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // Relations
+  accounts      Account[]
+  transactions  Transaction[]
+  cards         Card[]
+  loans         Loan[]
+  investments   Investment[]
+  kyc           KYC?
+  profile       Profile?
+  notifications Notification[]
+  
+  @@map("users")
+}
+
+// User Profile
+model Profile {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  dateOfBirth     DateTime?
+  gender          String?
+  fatherName      String?
+  motherName      String?
+  maritalStatus   String?
+  address         String?
+  city            String?
+  state           String?
+  pincode         String?
+  country         String   @default("India")
+  
+  nomineeNames    String?
+  nomineeRelation String?
+  nomineePhone    String?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@map("profiles")
+}
+
+// KYC Documents
+model KYC {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  aadhaarNumber String
+  panNumber     String
+  status        String   @default("pending") // pending, approved, rejected
+  verifiedAt    DateTime?
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@map("kyc")
+}
+
+// Bank Accounts
+model Account {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  accountNumber   String    @unique
+  accountType     String    // savings, current
+  balance         Decimal   @default(0) @db.Decimal(15, 2)
+  currency        String    @default("INR")
+  interestRate    Decimal?  @db.Decimal(5, 2)
+  status          String    @default("active") // active, frozen, closed
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  // Relations
+  transactionsFrom Transaction[] @relation("FromAccount")
+  transactionsTo   Transaction[] @relation("ToAccount")
+  
+  @@map("accounts")
+}
+
+// Transactions
+model Transaction {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  fromAccountId   String?
+  fromAccount     Account? @relation("FromAccount", fields: [fromAccountId], references: [id])
+  
+  toAccountId     String?
+  toAccount       Account? @relation("ToAccount", fields: [toAccountId], references: [id])
+  
+  type            String   // debit, credit, transfer, payment
+  amount          Decimal  @db.Decimal(15, 2)
+  currency        String   @default("INR")
+  description     String?
+  category        String?  // bills, food, shopping, etc.
+  status          String   @default("completed") // pending, completed, failed
+  
+  paymentMethod   String?  // card, upi, netbanking, wallet
+  referenceId     String?  @unique
+  
+  createdAt       DateTime @default(now())
+  
+  @@map("transactions")
+}
+
+// Cards
+model Card {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  cardNumber    String   @unique
+  cardType      String   // debit, credit
+  cardNetwork   String   // visa, mastercard, rupay
+  cvv           String
+  expiryMonth   Int
+  expiryYear    Int
+  cardholderName String
+  
+  creditLimit   Decimal? @db.Decimal(15, 2)
+  availableLimit Decimal? @db.Decimal(15, 2)
+  
+  status        String   @default("active") // active, blocked, expired
+  isVirtual     Boolean  @default(false)
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@map("cards")
+}
+
+// Loans
+model Loan {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  loanType        String   // personal, home, business, education
+  loanAmount      Decimal  @db.Decimal(15, 2)
+  interestRate    Decimal  @db.Decimal(5, 2)
+  tenure          Int      // in months
+  emi             Decimal  @db.Decimal(15, 2)
+  
+  outstandingAmount Decimal @db.Decimal(15, 2)
+  paidAmount      Decimal  @default(0) @db.Decimal(15, 2)
+  
+  status          String   @default("pending") // pending, approved, active, closed, rejected
+  applicationDate DateTime @default(now())
+  approvalDate    DateTime?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@map("loans")
+}
+
+// Investments
+model Investment {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  investmentType  String   // fd, rd, mutual_fund
+  amount          Decimal  @db.Decimal(15, 2)
+  interestRate    Decimal? @db.Decimal(5, 2)
+  maturityDate    DateTime?
+  
+  currentValue    Decimal  @db.Decimal(15, 2)
+  returns         Decimal  @default(0) @db.Decimal(15, 2)
+  
+  status          String   @default("active") // active, matured, closed
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@map("investments")
+}
+
+// Notifications
+model Notification {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  title       String
+  message     String
+  type        String   // info, warning, success, error
+  isRead      Boolean  @default(false)
+  
+  createdAt   DateTime @default(now())
+  
+  @@map("notifications")
+}
